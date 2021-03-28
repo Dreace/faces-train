@@ -105,6 +105,7 @@ if __name__ == '__main__':
     image_db = ImageDB(args.annotation_file)
     gt_imdb = image_db.load_imdb()
     gt_imdb = image_db.append_flipped_images(gt_imdb)
+    use_cuda = args.use_cuda and torch.cuda.is_available()
     train_p_net(model_path=args.model_path, end_epoch=args.end_epoch, imdb=gt_imdb,
                 batch_size=args.batch_size,
-                frequent=args.frequent, base_lr=args.learning_rate, use_cuda=args.use_cuda)
+                frequent=args.frequent, base_lr=args.learning_rate, use_cuda=use_cuda)

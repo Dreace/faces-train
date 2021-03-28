@@ -68,7 +68,6 @@ def assemble_data(output_file: str, file_name_list: list):
         os.remove(output_file)
 
     for file_name in file_name_list:
-        print(file_name)
         with open(file_name, 'r') as f:
             lines = f.readlines()
 
