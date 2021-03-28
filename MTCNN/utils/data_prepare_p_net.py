@@ -9,7 +9,7 @@ from logger import logger
 from tools import calculate_iou, assemble_data
 
 
-def prepare(annotation_file: str, processed_images_path: str, processed_annotation_path: str):
+def prepare(annotation_file: str, processed_images_path: str, processed_annotation_path: str, negative_produce=50):
     positive_images_path = processed_images_path + "/positive"
     negative_images_path = processed_images_path + '/negative'
     part_images_path = processed_images_path + "/part"
@@ -44,7 +44,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     for annotation in annotations:
         annotation = annotation.strip().split(' ')
         image_file = annotation[0]
-        logger.info(f"processing {image_file}")
+        # logger.info(f"processing {image_file}")
         bbox = list(map(float, annotation[1:]))
         boxes = np.array(bbox, dtype=np.int32).reshape(-1, 4)
         image = cv2.imread(image_file)
@@ -56,7 +56,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
 
         # 每张图裁剪出 50 个负面样本
         negative_crop_count = 0
-        while negative_crop_count < 50:
+        while negative_crop_count < negative_produce:
             size = np.random.randint(12, min(width, height) / 2)
             nx = np.random.randint(0, width - size)
             ny = np.random.randint(0, height - size)
@@ -161,5 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('--annotation-file', required=True, help='raw annotation file')
     parser.add_argument('--processed-annotation-path', required=True, help='path to processed annotation file')
     parser.add_argument('--processed-images-path', required=True, help='path to processed images')
+    parser.add_argument('--negative-produce', default=50, type=int,
+                        help='how many negative image need to produce')
     args = parser.parse_args()
-    prepare(args.annotation_file, args.processed_images_path, args.processed_annotation_path)
+    prepare(args.annotation_file, args.processed_images_path, args.processed_annotation_path, args.negative_produce)

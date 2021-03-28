@@ -4,14 +4,13 @@ import numpy as np
 
 
 class ImageDB(object):
-    def __init__(self, image_annotation_file, prefix_path='', mode='train'):
+    def __init__(self, image_annotation_file, prefix_path=''):
         self.prefix_path = prefix_path
         self.image_annotation_file = image_annotation_file
         self.classes = ['__background__', 'face']
         self.num_classes = 2
         self.image_set_index = self.load_image_set_index()
         self.num_images = len(self.image_set_index)
-        self.mode = mode
 
     def load_image_set_index(self):
         """Get image index
@@ -75,7 +74,7 @@ class ImageDB(object):
         assert os.path.exists(image_file), 'Path does not exist: {}'.format(image_file)
         return image_file
 
-    def load_annotations(self, annotion_type=1):
+    def load_annotations(self):
         """Load annotations
 
         Parameters:
@@ -102,25 +101,19 @@ class ImageDB(object):
             imdb_ = dict()
             imdb_['image'] = im_path
 
-            if self.mode == 'test':
-                # gt_boxes = map(float, annotation[1:])
-                # boxes = np.array(bbox, dtype=np.float32).reshape(-1, 4)
-                # imdb_['gt_boxes'] = boxes
-                pass
-            else:
-                label = annotation[1]
-                imdb_['label'] = int(label)
-                imdb_['flipped'] = False
-                imdb_['bbox_target'] = np.zeros((4,))
-                imdb_['landmark_target'] = np.zeros((10,))
-                if len(annotation[2:]) == 4:
-                    bbox_target = annotation[2:6]
-                    imdb_['bbox_target'] = np.array(bbox_target).astype(float)
-                if len(annotation[2:]) == 14:
-                    bbox_target = annotation[2:6]
-                    imdb_['bbox_target'] = np.array(bbox_target).astype(float)
-                    landmark = annotation[6:]
-                    imdb_['landmark_target'] = np.array(landmark).astype(float)
+            label = annotation[1]
+            imdb_['label'] = int(label)
+            imdb_['flipped'] = False
+            imdb_['bbox_target'] = np.zeros((4,))
+            imdb_['landmark_target'] = np.zeros((10,))
+            if len(annotation[2:]) == 4:
+                bbox_target = annotation[2:6]
+                imdb_['bbox_target'] = np.array(bbox_target).astype(float)
+            if len(annotation[2:]) == 14:
+                bbox_target = annotation[2:6]
+                imdb_['bbox_target'] = np.array(bbox_target).astype(float)
+                landmark = annotation[6:]
+                imdb_['landmark_target'] = np.array(landmark).astype(float)
             imdb.append(imdb_)
 
         return imdb
@@ -151,7 +144,7 @@ class ImageDB(object):
             item = {'image': imdb_['image'],
                     'label': imdb_['label'],
                     'bbox_target': m_bbox,
-                    'landmark_target': landmark_.reshape((10)),
+                    'landmark_target': landmark_.reshape(10),
                     'flipped': True}
 
             imdb.append(item)

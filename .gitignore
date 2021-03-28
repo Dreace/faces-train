@@ -38,7 +38,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Unit validate / coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -144,6 +144,9 @@ venv
 
 MTCNN/data/WIDER/train/**/*.txt
 MTCNN/data/WIDER/train/**/*.jpg
+MTCNN/data/WIDER/validate/**/*.txt
+MTCNN/data/WIDER/validate/**/*.jpg
+
 MTCNN/data/WIDER/wider_face_split
 MTCNN/data/WIDER/WIDER_test/
 MTCNN/data/WIDER/WIDER_train/
