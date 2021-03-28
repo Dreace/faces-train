@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torch.autograd.variable import Variable
-
+from torch.nn.functional import interpolate
 
 transform = transforms.ToTensor()
 
@@ -60,6 +60,43 @@ def compute_accuracy(prob_cls, gt_cls):
 
     return torch.div(torch.mul(torch.sum(right_ones), float(1.0)),
                      float(size))  # divided by zero meaning that your gt_labels are all negative, landmark or part
+
+
+def image_resample(img, sz):
+    im_data = interpolate(img, size=sz, mode="area")
+    return im_data
+
+
+def generate_bounding_Box(reg, label, scale, thresh: float):
+    stride = 2
+    cell_size = 12
+
+    reg = reg.permute(1, 0, 2, 3)
+
+    mask = label >= thresh
+    mask_inds = mask.nonzero()
+    image_inds = mask_inds[:, 0]
+    score = label[mask]
+    # print(mask)
+    # print(reg)
+    reg = reg[:, mask].permute(1, 0)
+    bb = mask_inds[:, 1:].type(reg.dtype).flip(1)
+    q1 = ((stride * bb + 1) / scale).floor()
+    q2 = ((stride * bb + cell_size - 1 + 1) / scale).floor()
+    boundingbox = torch.cat([q1, q2, score.unsqueeze(1), reg], dim=1)
+    return boundingbox, image_inds
+
+
+def rerec(bboxA):
+    h = bboxA[:, 3] - bboxA[:, 1]
+    w = bboxA[:, 2] - bboxA[:, 0]
+
+    l = torch.max(w, h)
+    bboxA[:, 0] = bboxA[:, 0] + w * 0.5 - l * 0.5
+    bboxA[:, 1] = bboxA[:, 1] + h * 0.5 - l * 0.5
+    bboxA[:, 2:4] = bboxA[:, :2] + l.repeat(2, 1).permute(1, 0)
+
+    return bboxA
 
 
 class LossFn:

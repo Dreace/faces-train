@@ -4,13 +4,14 @@ import numpy as np
 
 
 class ImageDB(object):
-    def __init__(self, image_annotation_file, prefix_path=''):
+    def __init__(self, image_annotation_file, mode: str = 'train', prefix_path=''):
         self.prefix_path = prefix_path
         self.image_annotation_file = image_annotation_file
         self.classes = ['__background__', 'face']
         self.num_classes = 2
         self.image_set_index = self.load_image_set_index()
         self.num_images = len(self.image_set_index)
+        self.mode = mode
 
     def load_image_set_index(self):
         """Get image index
@@ -100,20 +101,20 @@ class ImageDB(object):
             im_path = self.real_image_path(index)
             imdb_ = dict()
             imdb_['image'] = im_path
-
-            label = annotation[1]
-            imdb_['label'] = int(label)
-            imdb_['flipped'] = False
-            imdb_['bbox_target'] = np.zeros((4,))
-            imdb_['landmark_target'] = np.zeros((10,))
-            if len(annotation[2:]) == 4:
-                bbox_target = annotation[2:6]
-                imdb_['bbox_target'] = np.array(bbox_target).astype(float)
-            if len(annotation[2:]) == 14:
-                bbox_target = annotation[2:6]
-                imdb_['bbox_target'] = np.array(bbox_target).astype(float)
-                landmark = annotation[6:]
-                imdb_['landmark_target'] = np.array(landmark).astype(float)
+            if self.mode == 'train':
+                label = annotation[1]
+                imdb_['label'] = int(label)
+                imdb_['flipped'] = False
+                imdb_['bbox_target'] = np.zeros((4,))
+                imdb_['landmark_target'] = np.zeros((10,))
+                if len(annotation[2:]) == 4:
+                    bbox_target = annotation[2:6]
+                    imdb_['bbox_target'] = np.array(bbox_target).astype(float)
+                if len(annotation[2:]) == 14:
+                    bbox_target = annotation[2:6]
+                    imdb_['bbox_target'] = np.array(bbox_target).astype(float)
+                    landmark = annotation[6:]
+                    imdb_['landmark_target'] = np.array(landmark).astype(float)
             imdb.append(imdb_)
 
         return imdb

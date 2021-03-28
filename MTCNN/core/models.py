@@ -1,4 +1,12 @@
+import numpy as np
+import torch
 import torch.nn as nn
+from torchvision.ops import batched_nms
+
+try:
+    import MTCNN.core.tools as tools
+except:
+    import core.tools as tools
 
 
 class PNet(nn.Module):
@@ -35,3 +43,106 @@ class PNet(nn.Module):
         label = self.sigmoid(label)
         offset = self.conv4_2(x)
         return label, offset
+
+
+class MTCNN(nn.Module):
+    def __init__(self, device=None):
+        super().__init__()
+        self.p_net = PNet()
+        self.p_net.eval()
+
+        self.device = torch.device('cpu')
+        if device:
+            self.device = device
+            self.to(device)
+
+    def load_state(self, p_net_state: dict):
+        self.p_net.load_state_dict(p_net_state)
+
+    def detect_p_net(self, images):
+        if isinstance(images, (np.ndarray, torch.Tensor)):
+            if isinstance(images, np.ndarray):
+                images = torch.as_tensor(images.copy())
+
+            if isinstance(images, torch.Tensor):
+                images = torch.as_tensor(images)
+
+            if len(images.shape) == 3:
+                images = images.unsqueeze(0)
+        else:
+            if not isinstance(images, (list, tuple)):
+                images = [images]
+            if any(img.size != images[0].size for img in images):
+                raise Exception("MTCNN batch processing only compatible with equal-dimension images.")
+            images = np.stack([np.uint8(img) for img in images])
+            images = torch.as_tensor(images.copy())
+
+        images = images.to(self.device)
+
+        model_data_type = next(self.p_net.parameters()).dtype
+        images = images.permute(0, 3, 1, 2).type(model_data_type)
+
+        batch_size = len(images)
+        h, w = images.shape[2:4]
+        # FIXME minsize=20
+        minsize = 20
+        m = 12.0 / minsize
+        min_length = min(h, w)
+        min_length = min_length * m
+
+        # Create scale pyramid
+        scale_i = m
+        scales = []
+        # FIXME factor=0.709
+        factor = 0.709
+        while min_length >= 12:
+            scales.append(scale_i)
+            scale_i = scale_i * factor
+            min_length = min_length * factor
+
+        # First stage
+        boxes = []
+        image_indexes = []
+
+        scale_picks = []
+
+        # FIXME thresholds=[0.6, 0.7, 0.7]
+        thresholds = [0.6, 0.7, 0.7]
+        offset = 0
+        for scale in scales:
+            im_data = tools.image_resample(images, (int(h * scale + 1), int(w * scale + 1)))
+            im_data = (im_data - 127.5) * 0.0078125
+            label, reg = self.p_net(im_data)
+
+            print(label)
+            print(reg)
+
+            boxes_scale, image_indexs_scale = tools.generate_bounding_Box(reg, label[:, 0], scale, thresholds[0])
+            boxes.append(boxes_scale)
+            image_indexes.append(image_indexs_scale)
+
+            pick = batched_nms(boxes_scale[:, :4], boxes_scale[:, 4], image_indexs_scale, 0.5)
+            scale_picks.append(pick + offset)
+            offset += boxes_scale.shape[0]
+
+        boxes = torch.cat(boxes, dim=0)
+        image_indexes = torch.cat(image_indexes, dim=0)
+
+        scale_picks = torch.cat(scale_picks, dim=0)
+
+        # NMS within each scale + image
+        boxes, image_indexes = boxes[scale_picks], image_indexes[scale_picks]
+
+        # NMS within each image
+        pick = batched_nms(boxes[:, :4], boxes[:, 4], image_indexes, 0.7)
+        boxes, image_indexes = boxes[pick], image_indexes[pick]
+
+        regw = boxes[:, 2] - boxes[:, 0]
+        regh = boxes[:, 3] - boxes[:, 1]
+        qq1 = boxes[:, 0] + boxes[:, 5] * regw
+        qq2 = boxes[:, 1] + boxes[:, 6] * regh
+        qq3 = boxes[:, 2] + boxes[:, 7] * regw
+        qq4 = boxes[:, 3] + boxes[:, 8] * regh
+        boxes = torch.stack([qq1, qq2, qq3, qq4, boxes[:, 4]]).permute(1, 0)
+        boxes = tools.rerec(boxes)
+        return boxes
