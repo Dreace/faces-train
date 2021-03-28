@@ -158,10 +158,9 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--annotation-file', required=True, help='raw annotation file')
-    parser.add_argument('--processed-annotation-path', required=True, help='path to processed annotation file')
-    parser.add_argument('--processed-images-path', required=True, help='path to processed images')
-    parser.add_argument('--negative-produce', default=50, type=int,
-                        help='how many negative image need to produce')
+    parser.add_argument('--annotation-file', help='raw annotation file', required=True)
+    parser.add_argument('--processed-annotation-path', help='path to processed annotation file', required=True)
+    parser.add_argument('--processed-images-path', help='path to processed images', required=True)
+    parser.add_argument('--negative-produce', help='how many negative image need to produce', default=50, type=int)
     args = parser.parse_args()
     prepare(args.annotation_file, args.processed_images_path, args.processed_annotation_path, args.negative_produce)

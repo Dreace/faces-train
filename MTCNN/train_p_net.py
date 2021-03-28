@@ -138,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--annotation-file', help='training data annotation file', required=True)
     parser.add_argument('--validate-annotation-file', help='validate data annotation file', required=True)
     parser.add_argument('--model-path', help='training model store directory', required=True)
-    parser.add_argument('--end-epoch', help='end epoch of training', default=10)
+    parser.add_argument('--end-epoch', help='end epoch of training', default=10, type=int)
     parser.add_argument('--frequent', help='frequency of logging', default=10, type=int)
     parser.add_argument('--learning-rate', help='learning rate', default=0.01, type=float)
     parser.add_argument('--batch-size', help='train batch size', default=512, type=int)
