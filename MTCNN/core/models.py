@@ -1,3 +1,5 @@
+from typing import OrderedDict
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -26,9 +28,8 @@ class PNet(nn.Module):
         self.prelu2 = nn.PReLU(16)
         self.conv3 = nn.Conv2d(16, 32, kernel_size=3)
         self.prelu3 = nn.PReLU(32)
-        self.conv4_1 = nn.Conv2d(32, 1, kernel_size=1)
+        self.conv4_1 = nn.Conv2d(32, 2, kernel_size=1)
         self.softmax4_1 = nn.Softmax(dim=1)
-        self.sigmoid = nn.Sigmoid()
         self.conv4_2 = nn.Conv2d(32, 4, kernel_size=1)
 
     def forward(self, x):
@@ -39,24 +40,26 @@ class PNet(nn.Module):
         x = self.prelu2(x)
         x = self.conv3(x)
         x = self.prelu3(x)
-        label = self.conv4_1(x)
-        label = self.sigmoid(label)
-        offset = self.conv4_2(x)
-        return label, offset
+        a = self.conv4_1(x)
+        a = self.softmax4_1(a)
+        b = self.conv4_2(x)
+        return b, a
 
 
 class MTCNN(nn.Module):
     def __init__(self, device=None):
         super().__init__()
+
         self.p_net = PNet()
-        self.p_net.eval()
+
+        self.training = False
 
         self.device = torch.device('cpu')
         if device:
             self.device = device
             self.to(device)
 
-    def load_state(self, p_net_state: dict):
+    def load_state(self, p_net_state: OrderedDict[str, torch.Tensor]):
         self.p_net.load_state_dict(p_net_state)
 
     def detect_p_net(self, images):
@@ -78,6 +81,7 @@ class MTCNN(nn.Module):
             images = torch.as_tensor(images.copy())
 
         images = images.to(self.device)
+        print(images)
 
         model_data_type = next(self.p_net.parameters()).dtype
         images = images.permute(0, 3, 1, 2).type(model_data_type)
@@ -112,12 +116,12 @@ class MTCNN(nn.Module):
         for scale in scales:
             im_data = tools.image_resample(images, (int(h * scale + 1), int(w * scale + 1)))
             im_data = (im_data - 127.5) * 0.0078125
-            label, reg = self.p_net(im_data)
+            reg, label = self.p_net(im_data)
 
-            print(label)
-            print(reg)
+            # print(label)
+            # print(reg)
 
-            boxes_scale, image_indexs_scale = tools.generate_bounding_Box(reg, label[:, 0], scale, thresholds[0])
+            boxes_scale, image_indexs_scale = tools.generate_bounding_Box(reg, label[:, 1], scale, thresholds[0])
             boxes.append(boxes_scale)
             image_indexes.append(image_indexs_scale)
 

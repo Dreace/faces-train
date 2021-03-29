@@ -110,6 +110,8 @@ class LossFn:
         self.loss_landmark = nn.MSELoss()
 
     def class_loss(self, gt_label, pred_label):
+        print(gt_label)
+        print(pred_label)
         pred_label = torch.squeeze(pred_label)
         gt_label = torch.squeeze(gt_label)
         # get the mask element which >= 0, only 0 and 1 can effect the detection loss

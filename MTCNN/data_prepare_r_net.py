@@ -19,8 +19,10 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     device = torch.device('cuda:0' if use_cuda and torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     mtcnn = MTCNN(device=device)
+    mtcnn.eval()
     state_dict = torch.load(p_state_file)
-    mtcnn.load_state(state_dict['net'])
+    # FIXME mtcnn.load_state(state_dict['net'])
+    mtcnn.load_state(state_dict)
     image_db = ImageDB(annotation_file, mode="test")
     imdb = image_db.load_imdb()
     image_reader = TestImageLoader(imdb, 1, False)
@@ -33,8 +35,9 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
         #     print("%d images done" % batch_idx)
 
         # obtain boxes and aligned boxes
+        print(image)
         boxes_align = mtcnn.detect_p_net(image)
-        # logger.debug(boxes_align)
+        logger.debug(boxes_align)
         if boxes_align is None:
             all_boxes.append(np.array([]))
             batch_idx += 1

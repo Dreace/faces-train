@@ -20,6 +20,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
 
     loss_fn = tools.LossFn()
     net = PNet()
+    net.to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=base_lr)
 
@@ -33,8 +34,6 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
         start_epoch = state_dict['epoch']
         net.state_dict(state_dict['net'])
 
-    net.to(device)
-
     for cur_epoch in range(start_epoch, end_epoch + 1):
         net.train()
         accuracy_for_display = 0.0
@@ -45,14 +44,12 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
         train_data.reset()  # shuffle
 
         for batch_index, (image, (gt_label, gt_bbox, gt_landmark)) in enumerate(train_data):
-
             image_tensor = [tools.convert_image_to_tensor(image[i, :, :, :]) for i in range(image.shape[0])]
             image_tensor = torch.stack(image_tensor)
 
-            image_tensor = Variable(image_tensor)
-            gt_label = Variable(torch.from_numpy(gt_label).float())
+            gt_label = torch.from_numpy(gt_label).float()
 
-            gt_bbox = Variable(torch.from_numpy(gt_bbox).float())
+            gt_bbox = torch.from_numpy(gt_bbox).float()
             # gt_landmark = Variable(torch.from_numpy(gt_landmark).float())
 
             image_tensor = image_tensor.to(device)
