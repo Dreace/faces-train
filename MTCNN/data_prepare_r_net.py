@@ -35,7 +35,6 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
         #     print("%d images done" % batch_idx)
 
         # obtain boxes and aligned boxes
-        print(image)
         boxes_align = mtcnn.detect_p_net(image)
         logger.debug(boxes_align)
         if boxes_align is None:

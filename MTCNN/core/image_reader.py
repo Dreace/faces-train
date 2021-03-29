@@ -127,6 +127,7 @@ def get_mini_batch(imdb):
 
     for i in range(num_images):
         im = cv2.imread(imdb[i]['image'])
+        im = cv2.cvtColor(im,cv2.COLOR_BGR2RGB)
         # im = Image.open(imdb[i]['image'])
 
         if imdb[i]['flipped']:
@@ -165,5 +166,6 @@ def get_mini_batch(imdb):
 def get_test_batch(imdb):
     assert len(imdb) == 1, "Single batch only"
     im = cv2.imread(imdb[0]['image'])
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     data = {'data': im}
     return data
