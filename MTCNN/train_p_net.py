@@ -13,22 +13,30 @@ from utils.logger import logger
 
 
 def train_p_net(model_path, end_epoch, image_db, image_db_validate,
-                batch_size, frequent=10, base_lr=0.01, use_cuda=True):
+                batch_size, frequent=10, base_lr=0.01, use_cuda=True, resume: str = None):
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
     loss_fn = tools.LossFn()
     net = PNet()
-    net.train()
 
-    if use_cuda:
-        net.cuda()
     optimizer = torch.optim.Adam(net.parameters(), lr=base_lr)
 
     train_data = TrainImageReader(image_db, 12, batch_size, shuffle=True)
     validate_data = TrainImageReader(image_db_validate, 12, batch_size, shuffle=True)
 
-    for cur_epoch in range(1, end_epoch + 1):
+    start_epoch = 1
+    # 恢复训练
+    if resume:
+        state_dict = torch.load(resume, map_location='cpu')
+        start_epoch = state_dict['epoch']
+        net.state_dict(state_dict['net'])
+
+    if use_cuda:
+        net.cuda()
+
+    for cur_epoch in range(start_epoch, end_epoch + 1):
+        net.train()
         accuracy_for_display = 0.0
         class_loss_for_display = 0.0
         all_loss_for_display = 0.0
@@ -52,18 +60,18 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 gt_label = gt_label.cuda()
                 gt_bbox = gt_bbox.cuda()
                 # gt_landmark = gt_landmark.cuda()
-            predict_label, predict_box_offset = net(image_tensor)
+            predict_box_offset, predict_label = net(image_tensor)
 
             # all_loss, cls_loss, offset_loss = loss_fn.loss(gt_label=label_y,gt_offset=bbox_y, pred_label=predict_label,
             # pred_offset=predict_box_offset)
-            class_loss = loss_fn.class_loss(gt_label, predict_label)
+            class_loss = loss_fn.class_loss(gt_label, predict_label[:, 1])
             box_offset_loss = loss_fn.box_loss(gt_label, gt_bbox, predict_box_offset)
             # landmark_loss = loss_fn.landmark_loss(gt_label,gt_landmark,landmark_offset_pred)
 
             all_loss = class_loss * 1.0 + box_offset_loss * 0.5
 
             if batch_index % frequent == 0:
-                accuracy = tools.compute_accuracy(predict_label, gt_label)
+                accuracy = tools.compute_accuracy(predict_label[:, 1], gt_label)
                 accuracy_for_display = accuracy.data.cpu().numpy()
 
                 class_loss_for_display = class_loss.data.cpu().numpy()
@@ -99,11 +107,11 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                     image_tensor = image_tensor.cuda()
                     gt_label = gt_label.cuda()
                     gt_bbox = gt_bbox.cuda()
-                predict_label, predict_box_offset = net(image_tensor)
+                predict_box_offset, predict_label = net(image_tensor)
 
-                class_loss = loss_fn.class_loss(gt_label, predict_label)
+                class_loss = loss_fn.class_loss(gt_label, predict_label[:, 1])
                 box_offset_loss = loss_fn.box_loss(gt_label, gt_bbox, predict_box_offset)
-                accuracy = tools.compute_accuracy(predict_label, gt_label)
+                accuracy = tools.compute_accuracy(predict_label[:, 1], gt_label)
 
                 class_losses.append(class_loss.data.cpu().numpy())
                 box_offset_losses.append(box_offset_loss.data.cpu().numpy())
@@ -114,6 +122,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 np.mean(box_offset_losses), np.mean(class_losses) * 0.1 +
                 np.mean(box_offset_losses) * 0.5))
         torch.save({
+            'epoch': cur_epoch,
             'net': net.state_dict(),
             'train_loss': {
                 'accuracy': accuracy_for_display,
@@ -143,6 +152,8 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', help='learning rate', default=0.01, type=float)
     parser.add_argument('--batch-size', help='train batch size', default=512, type=int)
     parser.add_argument('--use-cuda', help='train with gpu', default=True, type=bool)
+    # parser.add_argument('--start-epoch', help='start epoch', default=1, type=int)
+    parser.add_argument('--resume', help='resume train')
 
     args = parser.parse_args()
 
@@ -157,4 +168,7 @@ if __name__ == '__main__':
     train_p_net(model_path=args.model_path, end_epoch=args.end_epoch, image_db=gt_image_db,
                 image_db_validate=gt_image_db_validate,
                 batch_size=args.batch_size,
-                frequent=args.frequent, base_lr=args.learning_rate, use_cuda=use_cuda)
+                frequent=args.frequent,
+                base_lr=args.learning_rate,
+                use_cuda=use_cuda,
+                resume=args.resume)
