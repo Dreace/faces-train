@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from torch.autograd.variable import Variable
 from torch.nn.functional import interpolate
 
 transform = transforms.ToTensor()
@@ -22,25 +21,6 @@ def convert_image_to_tensor(image):
     # image = image.astype(np.float32)
     return transform(image)
     # return transform(image)
-
-
-def convert_chwTensor_to_hwcNumpy(tensor):
-    """convert a group images pytorch tensor(count * c * h * w) to numpy array images(count * h * w * c)
-            Parameters:
-            ----------
-            tensor: numpy array , count * c * h * w
-
-            Returns:
-            -------
-            numpy array images: count * h * w * c
-            """
-
-    if isinstance(tensor, Variable):
-        return np.transpose(tensor.data.numpy(), (0, 2, 3, 1))
-    elif isinstance(tensor, torch.FloatTensor):
-        return np.transpose(tensor.numpy(), (0, 2, 3, 1))
-    else:
-        raise Exception("covert b*c*h*w tensor to b*h*w*c numpy error.This tensor must have 4 dimension.")
 
 
 def compute_accuracy(prob_cls, gt_cls):
@@ -95,6 +75,92 @@ def rerec(bboxA):
     bboxA[:, 2:4] = bboxA[:, :2] + l.repeat(2, 1).permute(1, 0)
 
     return bboxA
+
+
+def nms_numpy(boxes, scores, threshold, method):
+    if boxes.size == 0:
+        return np.empty((0, 3))
+
+    x1 = boxes[:, 0].copy()
+    y1 = boxes[:, 1].copy()
+    x2 = boxes[:, 2].copy()
+    y2 = boxes[:, 3].copy()
+    s = scores
+    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+
+    I = np.argsort(s)
+    pick = np.zeros_like(s, dtype=np.int16)
+    counter = 0
+    while I.size > 0:
+        i = I[-1]
+        pick[counter] = i
+        counter += 1
+        idx = I[0:-1]
+
+        xx1 = np.maximum(x1[i], x1[idx]).copy()
+        yy1 = np.maximum(y1[i], y1[idx]).copy()
+        xx2 = np.minimum(x2[i], x2[idx]).copy()
+        yy2 = np.minimum(y2[i], y2[idx]).copy()
+
+        w = np.maximum(0.0, xx2 - xx1 + 1).copy()
+        h = np.maximum(0.0, yy2 - yy1 + 1).copy()
+
+        inter = w * h
+        if method == "Min":
+            o = inter / np.minimum(area[i], area[idx])
+        else:
+            o = inter / (area[i] + area[idx] - inter)
+        I = I[np.where(o <= threshold)]
+
+    pick = pick[:counter].copy()
+    return pick
+
+
+def batched_nms_numpy(boxes, scores, idxs, threshold, method):
+    device = boxes.device
+    if boxes.numel() == 0:
+        return torch.empty((0,), dtype=torch.int64, device=device)
+    # strategy: in order to perform NMS independently per class.
+    # we add an offset to all the boxes. The offset is dependent
+    # only on the class idx, and is large enough so that boxes
+    # from different classes do not overlap
+    max_coordinate = boxes.max()
+    offsets = idxs.to(boxes) * (max_coordinate + 1)
+    boxes_for_nms = boxes + offsets[:, None]
+    boxes_for_nms = boxes_for_nms.cpu().numpy()
+    scores = scores.cpu().numpy()
+    keep = nms_numpy(boxes_for_nms, scores, threshold, method)
+    return torch.as_tensor(keep, dtype=torch.long, device=device)
+
+
+def pad(boxes, w, h):
+    boxes = boxes.trunc().int().cpu().numpy()
+    x = boxes[:, 0]
+    y = boxes[:, 1]
+    ex = boxes[:, 2]
+    ey = boxes[:, 3]
+
+    x[x < 1] = 1
+    y[y < 1] = 1
+    ex[ex > w] = w
+    ey[ey > h] = h
+
+    return y, ey, x, ex
+
+
+def bbreg(boundingbox, reg):
+    if reg.shape[1] == 1:
+        reg = torch.reshape(reg, (reg.shape[2], reg.shape[3]))
+
+    w = boundingbox[:, 2] - boundingbox[:, 0] + 1
+    h = boundingbox[:, 3] - boundingbox[:, 1] + 1
+    b1 = boundingbox[:, 0] + reg[:, 0] * w
+    b2 = boundingbox[:, 1] + reg[:, 1] * h
+    b3 = boundingbox[:, 2] + reg[:, 2] * w
+    b4 = boundingbox[:, 3] + reg[:, 3] * h
+    boundingbox[:, :4] = torch.stack([b1, b2, b3, b4]).permute(1, 0)
+
+    return boundingbox
 
 
 class LossFn:

@@ -142,12 +142,14 @@ cython_debug/
 .idea
 venv
 
-MTCNN/checkpoint/*.pt
+MTCNN/checkpoint/*_epoch_*.pt
 
 MTCNN/data/WIDER/train/**/*.txt
 MTCNN/data/WIDER/train/**/*.jpg
 MTCNN/data/WIDER/validate/**/*.txt
 MTCNN/data/WIDER/validate/**/*.jpg
+MTCNN/data/WIDER/test/**/*.txt
+MTCNN/data/WIDER/test/**/*.jpg
 
 MTCNN/data/WIDER/wider_face_split
 MTCNN/data/WIDER/WIDER_test/

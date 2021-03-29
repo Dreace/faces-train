@@ -30,7 +30,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     predict_boxes = []
 
     for image in image_reader:
-        boxes_align = mtcnn.detect_p_net(image).numpy()
+        boxes_align = mtcnn.detect_p_net(image).cpu().numpy()
         if boxes_align is None:
             predict_boxes.append(np.array([]))
             continue
