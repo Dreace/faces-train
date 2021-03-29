@@ -14,6 +14,7 @@ from utils.logger import logger
 
 def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 batch_size, frequent=10, base_lr=0.01, use_cuda=True, resume: str = None):
+    device = torch.device('cuda:0' if use_cuda and torch.cuda.is_available() else 'cpu')
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
@@ -32,8 +33,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
         start_epoch = state_dict['epoch']
         net.state_dict(state_dict['net'])
 
-    if use_cuda:
-        net.cuda()
+    net.to(device)
 
     for cur_epoch in range(start_epoch, end_epoch + 1):
         net.train()
@@ -55,11 +55,10 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
             gt_bbox = Variable(torch.from_numpy(gt_bbox).float())
             # gt_landmark = Variable(torch.from_numpy(gt_landmark).float())
 
-            if use_cuda:
-                image_tensor = image_tensor.cuda()
-                gt_label = gt_label.cuda()
-                gt_bbox = gt_bbox.cuda()
-                # gt_landmark = gt_landmark.cuda()
+            image_tensor = image_tensor.to(device)
+            gt_label = gt_label.to(device)
+            gt_bbox = gt_bbox.to(device)
+            # gt_landmark = gt_landmark.cuda()
             predict_box_offset, predict_label = net(image_tensor)
 
             # all_loss, cls_loss, offset_loss = loss_fn.loss(gt_label=label_y,gt_offset=bbox_y, pred_label=predict_label,
@@ -103,10 +102,10 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
 
                 gt_bbox = Variable(torch.from_numpy(gt_bbox).float())
 
-                if use_cuda:
-                    image_tensor = image_tensor.cuda()
-                    gt_label = gt_label.cuda()
-                    gt_bbox = gt_bbox.cuda()
+                image_tensor = image_tensor.to(device)
+                gt_label = gt_label.to(device)
+                gt_bbox = gt_bbox.to(device)
+
                 predict_box_offset, predict_label = net(image_tensor)
 
                 class_loss = loss_fn.class_loss(gt_label, predict_label[:, 1])

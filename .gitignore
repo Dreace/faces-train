@@ -142,6 +142,8 @@ cython_debug/
 .idea
 venv
 
+MTCNN/checkpoint/*.pt
+
 MTCNN/data/WIDER/train/**/*.txt
 MTCNN/data/WIDER/train/**/*.jpg
 MTCNN/data/WIDER/validate/**/*.txt
