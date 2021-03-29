@@ -94,10 +94,9 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 image_tensor = [tools.convert_image_to_tensor(image[i, :, :, :]) for i in range(image.shape[0])]
                 image_tensor = torch.stack(image_tensor)
 
-                image_tensor = Variable(image_tensor)
-                gt_label = Variable(torch.from_numpy(gt_label).float())
+                gt_label = torch.from_numpy(gt_label).float()
 
-                gt_bbox = Variable(torch.from_numpy(gt_bbox).float())
+                gt_bbox = torch.from_numpy(gt_bbox).float()
 
                 image_tensor = image_tensor.to(device)
                 gt_label = gt_label.to(device)
