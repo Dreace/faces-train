@@ -118,7 +118,7 @@ class TestImageLoader:
 
 
 def get_mini_batch(imdb):
-    # im_size: 12, 24 or 48
+    # im_size: 12, 24_ or 48
     num_images = len(imdb)
     processed_ims = list()
     cls_label = list()

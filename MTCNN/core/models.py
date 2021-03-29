@@ -51,8 +51,7 @@ class MTCNN(nn.Module):
         super().__init__()
 
         self.p_net = PNet()
-
-        self.training = False
+        self.p_net.eval()
 
         self.device = torch.device('cpu')
         if device:
@@ -62,6 +61,7 @@ class MTCNN(nn.Module):
     def load_state(self, p_net_state: OrderedDict[str, torch.Tensor]):
         self.p_net.load_state_dict(p_net_state)
 
+    @torch.no_grad()
     def detect_p_net(self, images):
         if isinstance(images, (np.ndarray, torch.Tensor)):
             if isinstance(images, np.ndarray):
@@ -81,7 +81,6 @@ class MTCNN(nn.Module):
             images = torch.as_tensor(images.copy())
 
         images = images.to(self.device)
-        print(images)
 
         model_data_type = next(self.p_net.parameters()).dtype
         images = images.permute(0, 3, 1, 2).type(model_data_type)
@@ -118,14 +117,11 @@ class MTCNN(nn.Module):
             im_data = (im_data - 127.5) * 0.0078125
             reg, label = self.p_net(im_data)
 
-            # print(label)
-            # print(reg)
-
-            boxes_scale, image_indexs_scale = tools.generate_bounding_Box(reg, label[:, 1], scale, thresholds[0])
+            boxes_scale, image_indexes_scale = tools.generate_bounding_Box(reg, label[:, 1], scale, thresholds[0])
             boxes.append(boxes_scale)
-            image_indexes.append(image_indexs_scale)
+            image_indexes.append(image_indexes_scale)
 
-            pick = batched_nms(boxes_scale[:, :4], boxes_scale[:, 4], image_indexs_scale, 0.5)
+            pick = batched_nms(boxes_scale[:, :4], boxes_scale[:, 4], image_indexes_scale, 0.5)
             scale_picks.append(pick + offset)
             offset += boxes_scale.shape[0]
 

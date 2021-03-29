@@ -10,7 +10,7 @@ from core.image_db import ImageDB
 from core.image_reader import TestImageLoader
 from core.models import MTCNN
 from utils.logger import logger
-from utils.tools import calculate_iou, assemble_data
+import utils.tools as tools
 
 
 def prepare(annotation_file: str, processed_images_path: str, processed_annotation_path: str, p_state_file: str,
@@ -20,30 +20,22 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     # device = torch.device('cpu')
     mtcnn = MTCNN(device=device)
     mtcnn.eval()
-    state_dict = torch.load(p_state_file)
-    # FIXME mtcnn.load_state(state_dict['net'])
+    state_dict = torch.load(p_state_file, map_location=torch.device('cpu'))
+    # mtcnn.load_state(state_dict['net'])
     mtcnn.load_state(state_dict)
     image_db = ImageDB(annotation_file, mode="test")
     imdb = image_db.load_imdb()
     image_reader = TestImageLoader(imdb, 1, False)
 
-    all_boxes = list()
-    batch_idx = 0
+    predict_boxes = []
 
     for image in image_reader:
-        # if batch_idx % 100 == 0:
-        #     print("%d images done" % batch_idx)
-
-        # obtain boxes and aligned boxes
-        boxes_align = mtcnn.detect_p_net(image)
-        logger.debug(boxes_align)
+        boxes_align = mtcnn.detect_p_net(image).numpy()
         if boxes_align is None:
-            all_boxes.append(np.array([]))
-            batch_idx += 1
+            predict_boxes.append(np.array([]))
             continue
-        all_boxes.append(boxes_align)
-        batch_idx += 1
-        return
+        predict_boxes.append(boxes_align)
+
     positive_images_path = processed_images_path + "/positive"
     negative_images_path = processed_images_path + '/negative'
     part_images_path = processed_images_path + "/part"
@@ -61,133 +53,99 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     os.mkdir(negative_images_path)
 
     # store labels of positive, negative, part images
-    positive_annotation_file = open(processed_annotation_path + '/12_positive.txt', 'w')
-    negative_annotation_file = open(processed_annotation_path + '/12_negative.txt', 'w')
-    part_annotation_file = open(processed_annotation_path + '/12_part.txt', 'w')
+    positive_annotation_file = open(processed_annotation_path + '/24_positive.txt', 'w')
+    negative_annotation_file = open(processed_annotation_path + '/24_negative.txt', 'w')
+    part_annotation_file = open(processed_annotation_path + '/24_part.txt', 'w')
 
-    # annotation_file: store labels of the wider face training data
+    image_paths = []
+    gt_boxes = []
+
     with open(annotation_file, 'r') as f:
         annotations = f.readlines()
     total = len(annotations)
     logger.info(f"{total} images")
 
+    for annotation in annotations:
+        annotation = annotation.strip().split(' ')
+
+        boxes = list(map(float, annotation[1:]))
+        boxes = np.array(boxes, dtype=np.float32).reshape(-1, 4)
+        image_paths.append(annotation[0])
+        gt_boxes.append(boxes)
+
     positive_count = 0  # positive
     negative_count = 0  # negative
     part_count = 0  # dont care
     total_count = 0
-    for annotation in annotations:
-        annotation = annotation.strip().split(' ')
-        image_file = annotation[0]
-        # logger.info(f"processing {image_file}")
-        bbox = list(map(float, annotation[1:]))
-        boxes = np.array(bbox, dtype=np.int32).reshape(-1, 4)
-        image = cv2.imread(image_file)
-        total_count += 1
-        if total_count % 100 == 0:
-            logger.info(f"{total_count / total * 100:.2f}%({total_count}/{total}) processed")
+    for image_path, boxes_p, boxes_gt in zip(image_paths, predict_boxes, gt_boxes):
+        boxes_gt = np.array(boxes_gt, dtype=np.float32).reshape(-1, 4)
 
-        height, width, channel = image.shape
+        if boxes_p.shape[0] == 0:
+            continue
 
-        # 每张图裁剪出 50 个负面样本
-        negative_crop_count = 0
-        while negative_crop_count < negative_produce:
-            size = np.random.randint(12, min(width, height) / 2)
-            nx = np.random.randint(0, width - size)
-            ny = np.random.randint(0, height - size)
-            crop_box = np.array([nx, ny, nx + size, ny + size])
-            iou = calculate_iou(crop_box, boxes)
-            if np.max(iou) < 0.3:
-                # iou with all gts must below 0.3
-                cropped_image = image[ny: ny + size, nx: nx + size, :]
-                resized_image = cv2.resize(cropped_image, (12, 12), interpolation=cv2.INTER_LINEAR)
+        img = cv2.imread(image_path)
+
+        boxes_p[:, 0:4] = np.round(boxes_p[:, 0:4])
+        neg_num = 0
+        for box in boxes_p:
+            x_left, y_top, x_right, y_bottom, _ = box.astype(int)
+            width = x_right - x_left + 1
+            height = y_bottom - y_top + 1
+
+            # ignore box that is too small or beyond image border
+            if width < 20 or x_left < 0 or y_top < 0 or x_right > img.shape[1] - 1 or y_bottom > img.shape[0] - 1:
+                continue
+
+            # compute intersection over union(IoU) between current box and all gt boxes
+            iou = tools.calculate_iou(box, boxes_gt)
+            cropped_im = img[y_top:y_bottom + 1, x_left:x_right + 1, :]
+            resized_image = cv2.resize(cropped_im, (24, 24),
+                                       interpolation=cv2.INTER_LINEAR)
+
+            # save negative images and write label
+            # iou with all boxes_gt must below 0.3
+            if np.max(iou) < 0.3 and neg_num < 60:
+                # save the examples
                 image_file = f"{negative_images_path}/{negative_count}.jpg"
                 negative_annotation_file.write(image_file + ' 0\n')
                 cv2.imwrite(image_file, resized_image)
                 negative_count += 1
-                negative_crop_count += 1
+            else:
+                # find gt_box with the highest iou
+                idx = np.argmax(iou)
+                assigned_gt = boxes_gt[idx]
+                x1, y1, x2, y2 = assigned_gt
 
-        for box in boxes:
-            # box (x_left, y_top, x_right, y_bottom)
-            x1, y1, x2, y2 = box
-            # w = x2 - x1 + 1
-            # h = y2 - y1 + 1
-            w = x2 - x1 + 1
-            h = y2 - y1 + 1
+                # compute bbox reg label
+                offset_x1 = (x1 - x_left) / float(width)
+                offset_y1 = (y1 - y_top) / float(height)
+                offset_x2 = (x2 - x_right) / float(width)
+                offset_y2 = (y2 - y_bottom) / float(height)
 
-            # ignore small faces
-            # in case the ground truth boxes of small faces are not accurate
-            if min(w, h) <= 0 or max(w, h) < 40 or x1 < 0 or y1 < 0:
-                continue
-
-            # generate negative examples that have overlap with gt
-            for i in range(5):
-                size = np.random.randint(12, min(width, height) / 2)
-                # delta_x and delta_y are offsets of (x1, y1)
-
-                delta_x = np.random.randint(max(-size, -x1), w)
-                delta_y = np.random.randint(max(-size, -y1), h)
-                nx1 = max(0, x1 + delta_x)
-                ny1 = max(0, y1 + delta_y)
-                if nx1 + size > width or ny1 + size > height:
-                    continue
-
-                crop_box = np.array([nx1, ny1, nx1 + size, ny1 + size])
-                iou = calculate_iou(crop_box, boxes)
-
-                if np.max(iou) < 0.3:
-                    # iou with all gts must below 0.3
-                    cropped_image = image[ny1: ny1 + size, nx1: nx1 + size, :]
-                    resized_image = cv2.resize(cropped_image, (12, 12), interpolation=cv2.INTER_LINEAR)
-                    image_file = f"{negative_images_path}/{negative_count}.jpg"
-                    negative_annotation_file.write(image_file + ' 0\n')
-                    cv2.imwrite(image_file, resized_image)
-                    negative_count += 1
-
-            # generate positive examples and part faces
-            for i in range(20):
-                size = np.random.randint(int(min(w, h) * 0.8), np.ceil(1.25 * max(w, h)))
-
-                # delta here is the offset of box center
-                delta_x = np.random.randint(-w * 0.2, w * 0.2)
-                delta_y = np.random.randint(-h * 0.2, h * 0.2)
-
-                nx1 = max(x1 + w / 2 + delta_x - size / 2, 0)
-                ny1 = max(y1 + h / 2 + delta_y - size / 2, 0)
-                nx2 = nx1 + size
-                ny2 = ny1 + size
-
-                if nx2 > width or ny2 > height:
-                    continue
-                crop_box = np.array([nx1, ny1, nx2, ny2])
-
-                offset_x1 = (x1 - nx1) / float(size)
-                offset_y1 = (y1 - ny1) / float(size)
-                offset_x2 = (x2 - nx2) / float(size)
-                offset_y2 = (y2 - ny2) / float(size)
-
-                cropped_image = image[int(ny1): int(ny2), int(nx1): int(nx2), :]
-                resized_image = cv2.resize(cropped_image, (12, 12), interpolation=cv2.INTER_LINEAR)
-
-                box = box.reshape(1, -1)
-                if calculate_iou(crop_box, box) >= 0.65:
+                # save positive and part-face images and write labels
+                if np.max(iou) >= 0.65:
                     image_file = f"{positive_images_path}/{positive_count}.jpg"
                     positive_annotation_file.write(
                         image_file + ' 1 %.2f %.2f %.2f %.2f\n' % (offset_x1, offset_y1, offset_x2, offset_y2))
                     cv2.imwrite(image_file, resized_image)
                     positive_count += 1
-                elif calculate_iou(crop_box, box) >= 0.4:
+                elif np.max(iou) >= 0.4:
                     image_file = f"{part_images_path}/{part_count}.jpg"
                     part_annotation_file.write(
                         image_file + ' -1 %.2f %.2f %.2f %.2f\n' % (offset_x1, offset_y1, offset_x2, offset_y2))
                     cv2.imwrite(image_file, resized_image)
                     part_count += 1
 
+        total_count += 1
+        if total_count % 100 == 0:
+            logger.info(f"{total_count / total * 100:.2f}%({total_count}/{total}) processed")
+
     positive_annotation_file.close()
     negative_annotation_file.close()
     part_annotation_file.close()
-    assemble_data(processed_annotation_path + '/12_all.txt',
-                  [processed_annotation_path + '/12_positive.txt', processed_annotation_path + '/12_part.txt',
-                   processed_annotation_path + '/12_negative.txt'])
+    tools.assemble_data(processed_annotation_path + '/24_all.txt',
+                        [processed_annotation_path + '/24_positive.txt', processed_annotation_path + '/24_part.txt',
+                         processed_annotation_path + '/24_negative.txt'])
 
 
 if __name__ == '__main__':

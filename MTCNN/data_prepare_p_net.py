@@ -48,9 +48,6 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
         bbox = list(map(float, annotation[1:]))
         boxes = np.array(bbox, dtype=np.int32).reshape(-1, 4)
         image = cv2.imread(image_file)
-        total_count += 1
-        if total_count % 100 == 0:
-            logger.info(f"{total_count / total * 100:.2f}%({total_count}/{total}) processed")
 
         height, width, channel = image.shape
 
@@ -147,6 +144,9 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
                         image_file + ' -1 %.2f %.2f %.2f %.2f\n' % (offset_x1, offset_y1, offset_x2, offset_y2))
                     cv2.imwrite(image_file, resized_image)
                     part_count += 1
+        total_count += 1
+        if total_count % 100 == 0:
+            logger.info(f"{total_count / total * 100:.2f}%({total_count}/{total}) processed")
 
     positive_annotation_file.close()
     negative_annotation_file.close()

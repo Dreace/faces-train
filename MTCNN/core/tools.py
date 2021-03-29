@@ -77,8 +77,6 @@ def generate_bounding_Box(reg, label, scale, thresh: float):
     mask_inds = mask.nonzero()
     image_inds = mask_inds[:, 0]
     score = label[mask]
-    # print(mask)
-    # print(reg)
     reg = reg[:, mask].permute(1, 0)
     bb = mask_inds[:, 1:].type(reg.dtype).flip(1)
     q1 = ((stride * bb + 1) / scale).floor()
