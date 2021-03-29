@@ -114,7 +114,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
         logger.info(
             "validate, accuracy: %s, class loss: %s, box offset loss: %s, all_loss: %s" % (
                 np.mean(accuracies), np.mean(class_losses),
-                np.mean(box_offset_losses), np.mean(class_losses) * 0.1 +
+                np.mean(box_offset_losses), np.mean(class_losses) * 1.0 +
                 np.mean(box_offset_losses) * 0.5))
         torch.save({
             'epoch': cur_epoch,
@@ -129,7 +129,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 'accuracy': np.mean(accuracies),
                 'class_loss': np.mean(class_losses),
                 'box_offset_loss': np.mean(box_offset_losses),
-                'all_loss': np.mean(class_losses) * 0.1 + np.mean(box_offset_losses) * 0.5
+                'all_loss': np.mean(class_losses) * 1.0 + np.mean(box_offset_losses) * 0.5
             }
         }, f"{model_path}/p_net_epoch_{cur_epoch}.pt")
         logger.info(f'save to {model_path}/p_net_epoch_{cur_epoch}.pt')
