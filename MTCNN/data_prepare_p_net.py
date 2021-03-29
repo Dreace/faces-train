@@ -5,8 +5,8 @@ import shutil
 import cv2
 import numpy as np
 
-from logger import logger
-from tools import calculate_iou, assemble_data
+from utils.logger import logger
+import utils.tools as tools
 
 
 def prepare(annotation_file: str, processed_images_path: str, processed_annotation_path: str, negative_produce=50):
@@ -61,7 +61,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
             nx = np.random.randint(0, width - size)
             ny = np.random.randint(0, height - size)
             crop_box = np.array([nx, ny, nx + size, ny + size])
-            iou = calculate_iou(crop_box, boxes)
+            iou = tools.calculate_iou(crop_box, boxes)
             if np.max(iou) < 0.3:
                 # iou with all gts must below 0.3
                 cropped_image = image[ny: ny + size, nx: nx + size, :]
@@ -98,7 +98,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
                     continue
 
                 crop_box = np.array([nx1, ny1, nx1 + size, ny1 + size])
-                iou = calculate_iou(crop_box, boxes)
+                iou = tools.calculate_iou(crop_box, boxes)
 
                 if np.max(iou) < 0.3:
                     # iou with all gts must below 0.3
@@ -135,13 +135,13 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
                 resized_image = cv2.resize(cropped_image, (12, 12), interpolation=cv2.INTER_LINEAR)
 
                 box = box.reshape(1, -1)
-                if calculate_iou(crop_box, box) >= 0.65:
+                if tools.calculate_iou(crop_box, box) >= 0.65:
                     image_file = f"{positive_images_path}/{positive_count}.jpg"
                     positive_annotation_file.write(
                         image_file + ' 1 %.2f %.2f %.2f %.2f\n' % (offset_x1, offset_y1, offset_x2, offset_y2))
                     cv2.imwrite(image_file, resized_image)
                     positive_count += 1
-                elif calculate_iou(crop_box, box) >= 0.4:
+                elif tools.calculate_iou(crop_box, box) >= 0.4:
                     image_file = f"{part_images_path}/{part_count}.jpg"
                     part_annotation_file.write(
                         image_file + ' -1 %.2f %.2f %.2f %.2f\n' % (offset_x1, offset_y1, offset_x2, offset_y2))
@@ -151,7 +151,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     positive_annotation_file.close()
     negative_annotation_file.close()
     part_annotation_file.close()
-    assemble_data(processed_annotation_path + '/12_all.txt',
+    tools.assemble_data(processed_annotation_path + '/12_all.txt',
                   [processed_annotation_path + '/12_positive.txt', processed_annotation_path + '/12_part.txt',
                    processed_annotation_path + '/12_negative.txt'])
 
