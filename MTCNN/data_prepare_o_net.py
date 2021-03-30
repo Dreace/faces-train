@@ -33,7 +33,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
 
     for image in image_reader:
         boxes_align = mtcnn.detect_p_net(image)
-        boxes_align = mtcnn.detect_r_net(boxes_align)
+        boxes_align = mtcnn.detect_r_net(boxes_align).cpu().numpy()
         if boxes_align is None:
             predict_boxes.append(np.array([]))
             continue
@@ -145,9 +145,9 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     positive_annotation_file.close()
     negative_annotation_file.close()
     part_annotation_file.close()
-    tools.assemble_data(processed_annotation_path + '/24_all.txt',
-                        [processed_annotation_path + '/24_positive.txt', processed_annotation_path + '/24_part.txt',
-                         processed_annotation_path + '/24_negative.txt'])
+    tools.assemble_data(processed_annotation_path + '/48_all.txt',
+                        [processed_annotation_path + '/48_positive.txt', processed_annotation_path + '/48_part.txt',
+                         processed_annotation_path + '/48_negative.txt'])
 
 
 if __name__ == '__main__':
