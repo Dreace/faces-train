@@ -1,3 +1,5 @@
+from typing import List, Tuple, Union, Any
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -40,6 +42,55 @@ def compute_accuracy(prob_cls, gt_cls):
 
     return torch.div(torch.mul(torch.sum(right_ones), float(1.0)),
                      float(size))  # divided by zero meaning that your gt_labels are all negative, landmark or part
+
+
+@torch.no_grad()
+def f1_score(prob_cls: torch.Tensor, gt_cls: torch.Tensor):
+    '''Calculate F1 score. Can work with gpu tensors
+
+    The original implmentation is written by Michal Haltuf on Kaggle.
+
+    Returns
+    -------
+    torch.Tensor
+        `ndim` == 1. 0 <= val <= 1
+
+    Reference
+    ---------
+    - https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
+    - https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
+    - https://discuss.pytorch.org/t/calculating-precision-recall-and-f1-score-in-case-of-multi-label-classification/28265/6
+
+    '''
+
+    prob_cls = torch.squeeze(prob_cls)
+    gt_cls = torch.squeeze(gt_cls)
+
+    # we only need the detection which >= 0
+    mask = torch.ge(gt_cls, 0)
+    # get valid element
+    valid_gt_cls = torch.masked_select(gt_cls, mask)
+    valid_prob_cls = torch.masked_select(prob_cls, mask)
+    size = min(valid_gt_cls.size()[0], valid_prob_cls.size()[0])
+
+    valid_gt_cls = valid_gt_cls[:size]
+    valid_prob_cls = valid_prob_cls[:size]
+
+    predict_positive_mask = valid_prob_cls > 0.6
+    gt_positive_mask = valid_gt_cls == 1
+
+    tp = (predict_positive_mask & gt_positive_mask).sum().to(torch.float32)
+    tn = ((~predict_positive_mask) & (~gt_positive_mask)).sum().to(torch.float32)
+    fp = ((~predict_positive_mask) & gt_positive_mask).sum().to(torch.float32)
+    fn = (predict_positive_mask * (~gt_positive_mask)).sum().to(torch.float32)
+
+    epsilon = 1e-7
+
+    precision = tp / (tp + fp + epsilon)
+    recall = tp / (tp + fn + epsilon)
+
+    f1 = 2 * (precision * recall) / (precision + recall + epsilon)
+    return f1, recall, precision
 
 
 def image_resample(img, sz):
