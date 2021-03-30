@@ -76,7 +76,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 logger.info(
                     "epoch: %d, step: %d, accuracy: %s, class loss: %s, box offset loss: %s, all_loss: %s, lr:%s " % (
                         cur_epoch, batch_index, accuracy_for_display, class_loss_for_display,
-                        box_offset_loss_for_display, all_loss_for_display, base_lr))
+                        box_offset_loss_for_display, all_loss_for_display, tools.get_learning_rate(optimizer)[0]))
 
             optimizer.zero_grad()
             all_loss.backward()
@@ -90,7 +90,6 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
             accuracies = []
             validate_data.reset()
             for batch_index, (image, (gt_label, gt_bbox, gt_landmark)) in enumerate(validate_data):
-
                 image_tensor = [tools.convert_image_to_tensor(image[i, :, :, :]) for i in range(image.shape[0])]
                 image_tensor = torch.stack(image_tensor)
 
@@ -119,6 +118,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
         torch.save({
             'epoch': cur_epoch,
             'net': net.state_dict(),
+            'lr': tools.get_learning_rate(optimizer)[0],
             'train_loss': {
                 'accuracy': accuracy_for_display,
                 'class_loss': class_loss_for_display,

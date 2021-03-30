@@ -210,3 +210,10 @@ class LossFn:
         valid_gt_landmark = gt_landmark[chose_index, :]
         valid_pred_landmark = pred_landmark[chose_index, :]
         return self.loss_landmark(valid_pred_landmark, valid_gt_landmark) * self.land_factor
+
+
+def get_learning_rate(optimizer):
+    lr = []
+    for param_group in optimizer.param_groups:
+        lr += [param_group['lr']]
+    return lr
