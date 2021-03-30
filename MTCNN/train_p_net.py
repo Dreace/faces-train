@@ -76,9 +76,9 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 all_loss_for_display = all_loss.data.cpu().numpy()
 
                 f1, recall, precision = tools.f1_score(predict_label[:, 1], gt_label)
-                f1_for_display = f1.numpy()
-                recall_for_display = recall.numpy()
-                precision_for_display = precision.numpy()
+                f1_for_display = f1.cpu().numpy()
+                recall_for_display = recall.cpu().numpy()
+                precision_for_display = precision.cpu().numpy()
                 logger.info("epoch: %d, step: %d, f1: %s, recall: %s, precision: %s" % (
                     cur_epoch, batch_index, f1_for_display, recall_for_display, precision_for_display))
                 logger.info(
@@ -124,9 +124,9 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 accuracies.append(accuracy.data.cpu().numpy())
                 f1, recall, precision = tools.f1_score(predict_label[:, 1], gt_label)
 
-                f1s.append(f1.numpy())
-                recalls.append(recall.numpy())
-                precisions.append(precision.numpy())
+                f1s.append(f1.cpu().numpy())
+                recalls.append(recall.cpu().numpy())
+                precisions.append(precision.cpu().numpy())
             logger.info("validate, f1: %s, recall: %s, precision: %s" % (
                 np.mean(f1s), np.mean(recalls), np.mean(precisions)))
             logger.info(
