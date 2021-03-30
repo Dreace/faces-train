@@ -40,6 +40,7 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
         class_loss_for_display = 0.0
         all_loss_for_display = 0.0
         box_offset_loss_for_display = 0.0
+        f1_for_display, recall_for_display, precision_for_display = 0.0, 0.0, 0.0
 
         train_data.reset()  # shuffle
 
@@ -68,10 +69,17 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
                 class_loss_for_display = class_loss.data.cpu().numpy()
                 box_offset_loss_for_display = box_offset_loss.data.cpu().numpy()
                 all_loss_for_display = all_loss.data.cpu().numpy()
+
+                f1, recall, precision = tools.f1_score(predict_label[:, 1], gt_label)
+                f1_for_display = f1.cpu().numpy()
+                recall_for_display = recall.cpu().numpy()
+                precision_for_display = precision.cpu().numpy()
+                logger.info("epoch: %d, step: %d, f1: %s, recall: %s, precision: %s" % (
+                    cur_epoch, batch_index, f1_for_display, recall_for_display, precision_for_display))
                 logger.info(
-                    "epoch: %d, step: %d, accuracy: %s, class loss: %s, box offset loss: %s, all_loss: %s, lr:%s " % (
+                    "epoch: %d, step: %d, accuracy: %s, class loss: %s, box offset loss: %s, all_loss: %s, lr: %s " % (
                         cur_epoch, batch_index, accuracy_for_display, class_loss_for_display,
-                        box_offset_loss_for_display, all_loss_for_display, base_lr))
+                        box_offset_loss_for_display, all_loss_for_display, tools.get_learning_rate(optimizer)[0]))
 
             optimizer.zero_grad()
             all_loss.backward()
@@ -80,12 +88,14 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
         # 计算验证数据集损失
         net.eval()
         with torch.no_grad():
+            f1s = []
+            recalls = []
+            precisions = []
             class_losses = []
             box_offset_losses = []
             accuracies = []
             validate_data.reset()
             for batch_index, (image, (gt_label, gt_bbox, gt_landmark)) in enumerate(validate_data):
-
                 image_tensor = [tools.convert_image_to_tensor(image[i, :, :, :]) for i in range(image.shape[0])]
                 image_tensor = torch.stack(image_tensor)
 
@@ -106,29 +116,42 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
                 class_losses.append(class_loss.data.cpu().numpy())
                 box_offset_losses.append(box_offset_loss.data.cpu().numpy())
                 accuracies.append(accuracy.data.cpu().numpy())
-        logger.info(
-            "validate, accuracy: %s, class loss: %s, box offset loss: %s, all_loss: %s" % (
-                np.mean(accuracies), np.mean(class_losses),
-                np.mean(box_offset_losses), np.mean(class_losses) * 0.1 +
-                np.mean(box_offset_losses) * 0.5))
+                f1, recall, precision = tools.f1_score(predict_label[:, 1], gt_label)
+
+                f1s.append(f1.cpu().numpy())
+                recalls.append(recall.cpu().numpy())
+                precisions.append(precision.cpu().numpy())
+            logger.info("validate, f1: %s, recall: %s, precision: %s" % (
+                np.mean(f1s), np.mean(recalls), np.mean(precisions)))
+            logger.info(
+                "validate, accuracy: %s, class loss: %s, box offset loss: %s, all_loss: %s" % (
+                    np.mean(accuracies), np.mean(class_losses),
+                    np.mean(box_offset_losses), np.mean(class_losses) * 1.0 +
+                    np.mean(box_offset_losses) * 0.5))
         torch.save({
             'epoch': cur_epoch,
             'net': net.state_dict(),
+            'lr': tools.get_learning_rate(optimizer)[0],
             'train_loss': {
                 'accuracy': accuracy_for_display,
                 'class_loss': class_loss_for_display,
                 'box_offset_loss': box_offset_loss_for_display,
-                'all_loss': all_loss_for_display
+                'all_loss': all_loss_for_display,
+                'f1': f1_for_display,
+                'recall': recall_for_display,
+                'precision': precision_for_display,
             },
             'validate_loss': {
                 'accuracy': np.mean(accuracies),
                 'class_loss': np.mean(class_losses),
                 'box_offset_loss': np.mean(box_offset_losses),
-                'all_loss': np.mean(class_losses) * 0.1 + np.mean(box_offset_losses) * 0.5
+                'all_loss': np.mean(class_losses) * 1.0 + np.mean(box_offset_losses) * 0.5,
+                'f1': np.mean(f1s),
+                'recall': np.mean(recalls),
+                'precision': np.mean(precisions),
             }
         }, f"{model_path}/r_net_epoch_{cur_epoch}.pt")
         logger.info(f'save to {model_path}/r_net_epoch_{cur_epoch}.pt')
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train R-Net',
