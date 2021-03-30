@@ -126,7 +126,7 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
                 'box_offset_loss': np.mean(box_offset_losses),
                 'all_loss': np.mean(class_losses) * 0.1 + np.mean(box_offset_losses) * 0.5
             }
-        }, f"{model_path}/p_net_epoch_{cur_epoch}.pt")
+        }, f"{model_path}/r_net_epoch_{cur_epoch}.pt")
         logger.info(f'save to {model_path}/r_net_epoch_{cur_epoch}.pt')
 
 

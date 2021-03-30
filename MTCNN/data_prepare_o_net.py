@@ -6,23 +6,25 @@ import cv2
 import numpy as np
 import torch
 
+import utils.tools as tools
 from core.image_db import ImageDB
 from core.image_reader import TestImageLoader
 from core.models import MTCNN
 from utils.logger import logger
-import utils.tools as tools
 
 
 def prepare(annotation_file: str, processed_images_path: str, processed_annotation_path: str, p_state_file: str,
+            r_state_file: str,
             negative_produce=50,
             use_cuda: bool = True):
     device = torch.device('cuda:0' if use_cuda and torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     mtcnn = MTCNN(device=device)
     mtcnn.eval()
-    state_dict = torch.load(p_state_file, map_location=torch.device('cpu'))
-    # mtcnn.load_state(state_dict['net'])
-    mtcnn.load_state(state_dict)
+    p_state_dict = torch.load(p_state_file, map_location=torch.device('cpu'))
+    r_state_dict = torch.load(r_state_file, map_location=torch.device('cpu'))
+    # mtcnn.load_state(p_state_dict['net'])
+    mtcnn.load_state(p_state_dict, r_state_dict)
     image_db = ImageDB(annotation_file, mode="test")
     imdb = image_db.load_imdb()
     image_reader = TestImageLoader(imdb, 1, False)
@@ -30,7 +32,8 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     predict_boxes = []
 
     for image in image_reader:
-        boxes_align = mtcnn.detect_p_net(image).cpu().numpy()
+        boxes_align = mtcnn.detect_p_net(image)
+        boxes_align = mtcnn.detect_r_net(boxes_align)
         if boxes_align is None:
             predict_boxes.append(np.array([]))
             continue
@@ -53,9 +56,9 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     os.mkdir(negative_images_path)
 
     # store labels of positive, negative, part images
-    positive_annotation_file = open(processed_annotation_path + '/24_positive.txt', 'w')
-    negative_annotation_file = open(processed_annotation_path + '/24_negative.txt', 'w')
-    part_annotation_file = open(processed_annotation_path + '/24_part.txt', 'w')
+    positive_annotation_file = open(processed_annotation_path + '/48_positive.txt', 'w')
+    negative_annotation_file = open(processed_annotation_path + '/48_negative.txt', 'w')
+    part_annotation_file = open(processed_annotation_path + '/48_part.txt', 'w')
 
     image_paths = []
     gt_boxes = []
@@ -86,7 +89,6 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
         img = cv2.imread(image_path)
 
         boxes_p[:, 0:4] = np.round(boxes_p[:, 0:4])
-        neg_num = 0
         for box in boxes_p:
             x_left, y_top, x_right, y_bottom, _ = box.astype(int)
             width = x_right - x_left + 1
@@ -99,18 +101,17 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
             # compute intersection over union(IoU) between current box and all gt boxes
             iou = tools.calculate_iou(box, boxes_gt)
             cropped_im = img[y_top:y_bottom + 1, x_left:x_right + 1, :]
-            resized_image = cv2.resize(cropped_im, (24, 24),
+            resized_image = cv2.resize(cropped_im, (48, 48),
                                        interpolation=cv2.INTER_LINEAR)
 
             # save negative images and write label
             # iou with all boxes_gt must below 0.3
-            if np.max(iou) < 0.3 and neg_num < 60:
+            if np.max(iou) < 0.3:
                 # save the examples
                 image_file = f"{negative_images_path}/{negative_count}.jpg"
                 negative_annotation_file.write(image_file + ' 0\n')
                 cv2.imwrite(image_file, resized_image)
                 negative_count += 1
-                neg_num += 1
             else:
                 # find gt_box with the highest iou
                 idx = np.argmax(iou)
@@ -154,11 +155,13 @@ if __name__ == '__main__':
     parser.add_argument('--annotation-file', help='raw annotation file', required=True)
     parser.add_argument('--processed-annotation-path', help='path to processed annotation file', required=True)
     parser.add_argument('--processed-images-path', help='path to processed images', required=True)
-    parser.add_argument('--p-state-file', help='state file', required=True)
+    parser.add_argument('--p-state-file', help='p net state file', required=True)
+    parser.add_argument('--r-state-file', help='r net state file', required=True)
     parser.add_argument('--negative-produce', help='how many negative image need to produce', default=50, type=int)
     parser.add_argument('--use-cuda', help='use cuda', default=True, type=bool)
     args = parser.parse_args()
     use_cuda = args.use_cuda and torch.cuda.is_available()
     prepare(args.annotation_file, args.processed_images_path, args.processed_annotation_path, args.p_state_file,
+            args.r_state_file,
             args.negative_produce,
             use_cuda=use_cuda)
