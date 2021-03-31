@@ -23,7 +23,7 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
     net.to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=base_lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.8)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
 
     train_data = TrainImageReader(image_db, 24, batch_size, shuffle=True)
     validate_data = TrainImageReader(image_db_validate, 24, batch_size, shuffle=True)
