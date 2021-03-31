@@ -167,7 +167,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                 'recall': np.mean(recalls),
                 'precision': np.mean(precisions),
             }
-        }, f"{model_path}/p_net_epoch_{cur_epoch}.pt")
+        }, f"{model_path}/o_net_epoch_{cur_epoch}.pt")
         logger.info(f'save to {model_path}/o_net_epoch_{cur_epoch}.pt')
 
 
