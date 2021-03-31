@@ -22,6 +22,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
     net.to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=base_lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.8)
 
     train_data = TrainImageReader(image_db, 48, batch_size, shuffle=True)
     validate_data = TrainImageReader(image_db_validate, 48, batch_size, shuffle=True)
@@ -140,6 +141,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
                     np.mean(accuracies), np.mean(class_losses),
                     np.mean(box_offset_losses), np.mean(landmark_losses), np.mean(class_losses) * 0.8 +
                     np.mean(box_offset_losses) * 0.6 + np.mean(landmark_losses) * 1.5))
+        scheduler.step()
         torch.save({
             'epoch': cur_epoch,
             'net': net.state_dict(),
