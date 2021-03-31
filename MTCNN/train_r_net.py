@@ -23,6 +23,7 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
     net.to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=base_lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.8)
 
     train_data = TrainImageReader(image_db, 24, batch_size, shuffle=True)
     validate_data = TrainImageReader(image_db_validate, 24, batch_size, shuffle=True)
@@ -152,6 +153,8 @@ def train_r_net(model_path, end_epoch, image_db, image_db_validate,
             }
         }, f"{model_path}/r_net_epoch_{cur_epoch}.pt")
         logger.info(f'save to {model_path}/r_net_epoch_{cur_epoch}.pt')
+        scheduler.step()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train R-Net',
