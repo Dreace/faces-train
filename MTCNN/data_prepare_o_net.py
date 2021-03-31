@@ -25,7 +25,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     r_state_dict = torch.load(r_state_file, map_location=torch.device('cpu'))
     # mtcnn.load_state(p_state_dict['net'])
     mtcnn.load_state(p_state_dict, r_state_dict)
-    image_db = ImageDB(annotation_file, mode="test")
+    image_db = ImageDB(annotation_file, mode="validate")
     imdb = image_db.load_imdb()
     image_reader = TestImageLoader(imdb, 1, False)
 
@@ -147,7 +147,8 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     part_annotation_file.close()
     tools.assemble_data(processed_annotation_path + '/48_all.txt',
                         [processed_annotation_path + '/48_positive.txt', processed_annotation_path + '/48_part.txt',
-                         processed_annotation_path + '/48_negative.txt'])
+                         processed_annotation_path + '/48_negative.txt'],
+                        True)
 
 
 if __name__ == '__main__':

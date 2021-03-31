@@ -61,10 +61,10 @@ def convert_to_square(bbox):
     return square_bbox
 
 
-def assemble_data(output_file: str, file_name_list: list):
+def assemble_data(output_file: str, file_name_list: list, remove_exist_file: bool = False):
     # assemble the pos, neg, part annotations to one file
 
-    if os.path.exists(output_file):
+    if remove_exist_file and os.path.exists(output_file):
         os.remove(output_file)
 
     for file_name in file_name_list:

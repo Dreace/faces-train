@@ -23,7 +23,7 @@ def prepare(annotation_file: str, processed_images_path: str, processed_annotati
     state_dict = torch.load(p_state_file, map_location=torch.device('cpu'))
     # mtcnn.load_state(state_dict['net'])
     mtcnn.load_state(state_dict)
-    image_db = ImageDB(annotation_file, mode="test")
+    image_db = ImageDB(annotation_file, mode="validate")
     imdb = image_db.load_imdb()
     image_reader = TestImageLoader(imdb, 1, False)
 

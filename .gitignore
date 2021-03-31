@@ -155,3 +155,6 @@ MTCNN/data/WIDER/wider_face_split
 MTCNN/data/WIDER/WIDER_test/
 MTCNN/data/WIDER/WIDER_train/
 MTCNN/data/WIDER/WIDER_val/
+
+MTCNN/data/CNN_FacePoint/**/*.jpg
+MTCNN/data/CNN_FacePoint/**/*.txt
