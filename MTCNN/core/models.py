@@ -140,26 +140,63 @@ class MTCNN(nn.Module):
     images = torch.Tensor()
     image_indexes = torch.Tensor()
 
-    def __init__(self, device=None):
+    def __init__(self, device=None, thresholds=(0.6, 0.7, 0.7)):
         super().__init__()
 
-        self.thresholds = [0.6, 0.7, 0.7]
+        self.thresholds = thresholds
 
         self.p_net = PNet()
         self.p_net.eval()
         self.r_net = RNet()
         self.r_net.eval()
+        self.o_net = ONet()
+        self.o_net.eval()
 
         self.device = torch.device('cpu')
         if device:
             self.device = device
             self.to(device)
 
-    def load_state(self, p_net_state=None, r_net_state=None):
+    def load_state(self, p_net_state=None, r_net_state=None, o_net_state=None):
         if p_net_state:
             self.p_net.load_state_dict(p_net_state)
         if r_net_state:
             self.r_net.load_state_dict(r_net_state)
+        if o_net_state:
+            self.o_net.load_state_dict(o_net_state)
+
+    def detect_face(self, images):
+        batch_boxes = self.detect_p_net(images)
+        batch_boxes = self.detect_r_net(batch_boxes)
+        batch_boxes, batch_points = self.detect_o_net(batch_boxes)
+
+        boxes, probs, points = [], [], []
+        for box, point in zip(batch_boxes, batch_points):
+            box = np.array(box)
+            point = np.array(point)
+            if len(box) == 0:
+                boxes.append(None)
+                probs.append([None])
+                points.append(None)
+            else:
+                boxes.append(box[:, :4])
+                probs.append(box[:, 4])
+                points.append(point)
+
+        boxes = np.array(boxes)
+        probs = np.array(probs)
+        points = np.array(points)
+
+        if (
+                not isinstance(images, (list, tuple)) and
+                not (isinstance(images, np.ndarray) and len(images.shape) == 4) and
+                not (isinstance(images, torch.Tensor) and len(images.shape) == 4)
+        ):
+            boxes = boxes[0]
+            probs = probs[0]
+            points = points[0]
+
+        return boxes, probs, points
 
     @torch.no_grad()
     def detect_p_net(self, images):
@@ -209,8 +246,6 @@ class MTCNN(nn.Module):
         image_indexes = []
 
         scale_picks = []
-
-        # FIXME thresholds=[0.6, 0.7, 0.7]
 
         offset = 0
         for scale in scales:
@@ -271,12 +306,73 @@ class MTCNN(nn.Module):
             score = out1[1, :]
             ipass = score > self.thresholds[1]
             boxes = torch.cat((boxes[ipass, :4], score[ipass].unsqueeze(1)), dim=1)
-            image_inds = self.image_indexes[ipass]
+            self.image_indexes = self.image_indexes[ipass]
             mv = out0[:, ipass].permute(1, 0)
 
             # NMS within each image
-            pick = batched_nms(boxes[:, :4], boxes[:, 4], image_inds, 0.7)
-            boxes, image_inds, mv = boxes[pick], image_inds[pick], mv[pick]
+            pick = batched_nms(boxes[:, :4], boxes[:, 4], self.image_indexes, 0.7)
+            boxes, self.image_indexes, mv = boxes[pick], self.image_indexes[pick], mv[pick]
             boxes = tools.bbreg(boxes, mv)
             boxes = tools.rerec(boxes)
             return boxes
+
+    @torch.no_grad()
+    def detect_o_net(self, boxes):
+        h, w = self.images.shape[2:4]
+        points = torch.zeros(0, 5, 2, device=self.device)
+        if len(boxes) > 0:
+            y, ey, x, ex = tools.pad(boxes, w, h)
+            image_data = []
+            for k in range(len(y)):
+                if ey[k] > (y[k] - 1) and ex[k] > (x[k] - 1):
+                    img_k = self.images[self.image_indexes[k], :, (y[k] - 1):ey[k], (x[k] - 1):ex[k]].unsqueeze(0)
+                    # print(tools.image_resample(img_k, (48, 48))[0][0])
+                    # print(tools.image_resample(img_k, (48, 48))[0][0].data.cpu().numpy())
+                    # cv2.imshow("", tools.image_resample(img_k, (48, 48))[0][0].data.cpu().numpy())
+                    # cv2.waitKey(0)
+                    image_data.append(tools.image_resample(img_k, (48, 48)))
+            image_data = torch.cat(image_data, dim=0)
+            image_data /= 255
+
+            # This is equivalent to out = onet(image_data) to avoid GPU out of memory.
+            out = self.o_net(image_data)
+
+            out0 = out[0].permute(1, 0)
+            out1 = out[1].permute(1, 0)
+            out2 = out[2].permute(1, 0)
+            score = out2[1, :]
+            points = out1
+            ipass = score > self.thresholds[2]
+            points = points[:, ipass]
+            boxes = torch.cat((boxes[ipass, :4], score[ipass].unsqueeze(1)), dim=1)
+
+            self.image_indexes = self.image_indexes[ipass]
+            mv = out0[:, ipass].permute(1, 0)
+
+            w_i = boxes[:, 2] - boxes[:, 0] + 1
+            h_i = boxes[:, 3] - boxes[:, 1] + 1
+            points_x = w_i.repeat(5, 1) * points[:5, :] + boxes[:, 0].repeat(5, 1) - 1
+            points_y = h_i.repeat(5, 1) * points[5:10, :] + boxes[:, 1].repeat(5, 1) - 1
+            points = torch.stack((points_x, points_y)).permute(2, 1, 0)
+            boxes = tools.bbreg(boxes, mv)
+
+            # NMS within each image using "Min" strategy
+            # pick = batched_nms(boxes[:, :4], boxes[:, 4], image_index, 0.7)
+            pick = tools.batched_nms_numpy(boxes[:, :4], boxes[:, 4], self.image_indexes, 0.7, 'Min')
+            boxes, self.image_indexes, points = boxes[pick], self.image_indexes[pick], points[pick]
+
+        boxes = boxes.cpu().numpy()
+        points = points.cpu().numpy()
+
+        self.image_indexes = self.image_indexes.cpu()
+
+        batch_boxes = []
+        batch_points = []
+        for b_i in range(self.images.shape[0]):
+            box_indexes = np.where(self.image_indexes == b_i)
+            batch_boxes.append(boxes[box_indexes].copy())
+            batch_points.append(points[box_indexes].copy())
+
+        batch_boxes, batch_points = np.array(batch_boxes), np.array(batch_points)
+
+        return batch_boxes, batch_points
