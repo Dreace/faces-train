@@ -11,8 +11,17 @@ from core.models import ONet
 from utils.logger import logger
 
 
-def train_p_net(model_path, end_epoch, image_db, image_db_validate,
-                batch_size, frequent=10, base_lr=0.01, use_cuda=True, resume: str = None):
+def train_p_net(model_path,
+                end_epoch,
+                image_db,
+                image_db_validate,
+                batch_size,
+                frequent=10,
+                base_lr=0.01,
+                lr_step: int = 1,
+                lr_gamma: float = 0.8,
+                use_cuda=True,
+                resume: str = None):
     device = torch.device('cuda:0' if use_cuda and torch.cuda.is_available() else 'cpu')
     if not os.path.exists(model_path):
         os.makedirs(model_path)
@@ -22,7 +31,7 @@ def train_p_net(model_path, end_epoch, image_db, image_db_validate,
     net.to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=base_lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.8)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_step, gamma=lr_gamma)
 
     train_data = TrainImageReader(image_db, 48, batch_size, shuffle=True)
     validate_data = TrainImageReader(image_db_validate, 48, batch_size, shuffle=True)
@@ -181,6 +190,8 @@ if __name__ == '__main__':
     parser.add_argument('--end-epoch', help='end epoch of training', default=10, type=int)
     parser.add_argument('--frequent', help='frequency of logging', default=10, type=int)
     parser.add_argument('--learning-rate', help='learning rate', default=0.01, type=float)
+    parser.add_argument('--learning-rate-step', help='learning rate step', default=1, type=int)
+    parser.add_argument('--learning-rate-gamma', help='learning rate gamma', default=0.8, type=float)
     parser.add_argument('--batch-size', help='train batch size', default=512, type=int)
     parser.add_argument('--use-cuda', help='train with gpu', default=True, type=bool)
     # parser.add_argument('--start-epoch', help='start epoch', default=1, type=int)
@@ -201,5 +212,7 @@ if __name__ == '__main__':
                 batch_size=args.batch_size,
                 frequent=args.frequent,
                 base_lr=args.learning_rate,
+                lr_step=args.learning_rate_step,
+                lr_gamma=args.learning_rate_gamma,
                 use_cuda=use_cuda,
                 resume=args.resume)
