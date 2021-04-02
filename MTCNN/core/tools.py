@@ -105,7 +105,7 @@ def generate_bounding_Box(reg, label, scale, thresh: float):
     reg = reg.permute(1, 0, 2, 3)
 
     mask = label >= thresh
-    mask_inds = mask.nonzero()
+    mask_inds = mask.nonzero(as_tuple =False)
     image_inds = mask_inds[:, 0]
     score = label[mask]
     reg = reg[:, mask].permute(1, 0)

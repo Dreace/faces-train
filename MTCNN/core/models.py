@@ -332,7 +332,7 @@ class MTCNN(nn.Module):
                     # cv2.waitKey(0)
                     image_data.append(tools.image_resample(img_k, (48, 48)))
             image_data = torch.cat(image_data, dim=0)
-            image_data /= 255
+            image_data = (image_data - 127.5) * 0.0078125
 
             # This is equivalent to out = onet(image_data) to avoid GPU out of memory.
             out = self.o_net(image_data)
