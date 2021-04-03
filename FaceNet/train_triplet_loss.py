@@ -249,7 +249,8 @@ def main():
         lr=learning_rate,
         lr_decay=0,
         initial_accumulator_value=0.1,
-        eps=1e-10
+        eps=1e-10,
+        weight_decay=2e-4
     )
 
     # Resume from a model checkpoint
@@ -388,6 +389,7 @@ def main():
 
         # Save model checkpoint
         torch.save(state, f'{save_prefix}/model_training_checkpoints/model_triplet_epoch_{epoch}.pt')
+
 
 if __name__ == '__main__':
     main()
