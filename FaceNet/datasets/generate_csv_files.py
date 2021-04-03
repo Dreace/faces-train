@@ -5,11 +5,12 @@
     which significantly slows performance.
 """
 
-import os
-import glob
-import pandas as pd
-import time
 import argparse
+import glob
+import os
+import time
+
+import pandas as pd
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description="Generating csv file for triplet loss!")
@@ -17,6 +18,7 @@ parser.add_argument('--dataroot', '-d', type=str, required=True,
                     help="(REQUIRED) Absolute path to the dataset folder to generate a csv file containing the paths of the images for triplet loss."
                     )
 parser.add_argument('--csv_name', type=str,
+                    default="vggface2.csv",
                     help="Required name of the csv file to be generated. (default: 'vggface2.csv')"
                     )
 args = parser.parse_args()
@@ -44,7 +46,6 @@ def generate_csv_file(dataroot, csv_name="vggface2.csv"):
     progress_bar = enumerate(tqdm(files))
 
     for file_index, file in progress_bar:
-
         face_id = os.path.basename(file).split('.')[0]
         face_label = os.path.basename(os.path.dirname(file))
 
@@ -59,8 +60,8 @@ def generate_csv_file(dataroot, csv_name="vggface2.csv"):
     dataframe['class'] = pd.factorize(dataframe['name'])[0]
     dataframe.to_csv(path_or_buf=csv_name, index=False)
 
-    elapsed_time = time.time()-start_time
-    print("\nDone! Elapsed time: {:.2f} minutes.".format(elapsed_time/60))
+    elapsed_time = time.time() - start_time
+    print("\nDone! Elapsed time: {:.2f} minutes.".format(elapsed_time / 60))
 
 
 if __name__ == '__main__':
