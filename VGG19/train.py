@@ -114,11 +114,11 @@ def main():
                 _, predicted = torch.max(predict_labels, 1)
                 public_test_total += labels.shape[0]
                 public_test_correct += (predicted == labels).data.cpu().sum()
-                print(
-                    f'public test, loss {loss.cpu().data.numpy():.3}  accuracy {public_test_correct / public_test_total * 100:0.3}%')
-                with open(f'{save_prefix}/public_test.txt', 'a+') as public_test_log_file:
-                    public_test_log_file.write(
-                        f'loss {loss.cpu().data.numpy():.3}  accuracy {public_test_correct / public_test_total * 100:0.3}%\n')
+            print(
+                f'public test, loss {loss.cpu().data.numpy():.3}  accuracy {public_test_correct / public_test_total * 100:0.3}%')
+            with open(f'{save_prefix}/public_test.txt', 'a+') as public_test_log_file:
+                public_test_log_file.write(
+                    f'loss {loss.cpu().data.numpy():.3}  accuracy {public_test_correct / public_test_total * 100:0.3}%\n')
 
             private_test_total = 0
             private_test_correct = 0
@@ -133,11 +133,11 @@ def main():
                 _, predicted = torch.max(predict_labels, 1)
                 private_test_total += labels.shape[0]
                 private_test_correct += (predicted == labels).data.cpu().sum()
-                print(
-                    f'public test, loss {loss.cpu().data.numpy():.3}  accuracy {private_test_correct / private_test_total * 100:0.3}%')
-                with open(f'{save_prefix}/private_test.txt', 'a+') as private_test_log_file:
-                    private_test_log_file.write(
-                        f'loss {loss.cpu().data.numpy():.3}  accuracy {private_test_correct / private_test_total * 100:0.3}%\n')
+            print(
+                f'public test, loss {loss.cpu().data.numpy():.3}  accuracy {private_test_correct / private_test_total * 100:0.3}%')
+            with open(f'{save_prefix}/private_test.txt', 'a+') as private_test_log_file:
+                private_test_log_file.write(
+                    f'loss {loss.cpu().data.numpy():.3}  accuracy {private_test_correct / private_test_total * 100:0.3}%\n')
 
 
 if __name__ == '__main__':
