@@ -1,5 +1,4 @@
 import argparse
-import gc
 import os
 
 import numpy as np
@@ -160,8 +159,8 @@ def forward_pass(imgs, model, batch_size):
     neg_embeddings = embeddings[batch_size * 2:]
 
     # Free some memory
-    del imgs, embeddings
-    gc.collect()
+    # del imgs, embeddings
+    # gc.collect()
 
     return anc_embeddings, pos_embeddings, neg_embeddings, model
 
@@ -333,8 +332,8 @@ def main():
             pos_valid_embeddings = pos_embeddings[valid_triplets]
             neg_valid_embeddings = neg_embeddings[valid_triplets]
 
-            del anc_embeddings, pos_embeddings, neg_embeddings, pos_dists, neg_dists
-            gc.collect()
+            # del anc_embeddings, pos_embeddings, neg_embeddings, pos_dists, neg_dists
+            # gc.collect()
 
             # Calculate triplet loss
             triplet_loss = TripletLoss(margin=margin).forward(
@@ -352,8 +351,8 @@ def main():
             optimizer_model.step()
 
             # Clear some memory at end of training iteration
-            del triplet_loss, anc_valid_embeddings, pos_valid_embeddings, neg_valid_embeddings
-            gc.collect()
+            # del triplet_loss, anc_valid_embeddings, pos_valid_embeddings, neg_valid_embeddings
+            # gc.collect()
 
         # Print training statistics for epoch and add to log
         print('Epoch {}:\tNumber of valid training triplets in epoch: {}'.format(
