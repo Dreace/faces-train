@@ -48,7 +48,8 @@ def main():
     model.to(device)
 
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=5e-4)
+    # 学习率衰减
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=learning_rate_step, gamma=learning_rate_gamma)
 
     train_loader = torch.utils.data.DataLoader(FER2013('train', transform=transforms.Compose([

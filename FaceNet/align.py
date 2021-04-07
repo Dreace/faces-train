@@ -18,11 +18,11 @@ o_state_dict = torch.load('MTCNN/checkpoint/onet.pt', map_location=torch.device(
 
 mtcnn.load_state(p_state_dict, r_state_dict, o_state_dict)
 
-processed_path = 'FaceNet/data/VGGFace2/processed'
+processed_path = 'FaceNet/data/custom/processed'
 if not os.path.exists(processed_path):
     os.mkdir(processed_path)
 
-files = glob.glob("FaceNet/data/VGGFace2/test/*/*")
+files = glob.glob("FaceNet/data/custom/face/*/*")
 progress_bar = tqdm(files)
 
 for file_name in progress_bar:

@@ -57,7 +57,7 @@ def generate_csv_file(dataroot, csv_name="vggface2.csv"):
     dataframe = dataframe.sort_values(by=['name', 'id']).reset_index(drop=True)
 
     # Encode names as categorical classes
-    dataframe['class'] = pd.factorize(dataframe['name'])[0]
+    dataframe['class'] = pd.factorize(dataframe['name'])[0] + 9131
     dataframe.to_csv(path_or_buf=csv_name, index=False)
 
     elapsed_time = time.time() - start_time
