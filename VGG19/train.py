@@ -68,6 +68,8 @@ def main():
     ])), batch_size=batch_size, shuffle=False, num_workers=1)
 
     for epoch in range(start_epoch, epochs + 1):
+        print(f'epoch {epoch}')
+        # 训练
         total = 0
         correct = 0
         for batch_index, (images, labels) in enumerate(tqdm.tqdm(train_loader)):
@@ -91,7 +93,7 @@ def main():
                     f'train, loss {loss.cpu().data.numpy():.3}  accuracy {correct / total * 100:0.3}%  lr {get_learning_rate(optimizer)[0]}')
                 with open(f'{save_prefix}/train.txt', 'a+') as train_log_file:
                     train_log_file.write(
-                        f'{epoch}-{batch_index} loss {loss.cpu().data.numpy():.3}  accuracy {correct / total * 100:0.3}% lr {get_learning_rate(optimizer)[0]}\n')
+                        f'{epoch}-{batch_index} {loss.cpu().data.numpy():.3} {correct / total * 100:0.3} {get_learning_rate(optimizer)[0]}\n')
         scheduler.step()
         torch.save({
             'epoch': epoch,
@@ -101,6 +103,7 @@ def main():
 
         model.eval()
         with torch.no_grad():
+            # public test
             public_test_total = 0
             public_test_correct = 0
             for batch_index, (images, labels) in enumerate(tqdm.tqdm(public_test_loader)):
@@ -118,8 +121,8 @@ def main():
                 f'public test, loss {loss.cpu().data.numpy():.3}  accuracy {public_test_correct / public_test_total * 100:0.3}%')
             with open(f'{save_prefix}/public_test.txt', 'a+') as public_test_log_file:
                 public_test_log_file.write(
-                    f'loss {loss.cpu().data.numpy():.3}  accuracy {public_test_correct / public_test_total * 100:0.3}%\n')
-
+                    f'{loss.cpu().data.numpy():.3} {public_test_correct / public_test_total * 100:0.3}\n')
+            # private test
             private_test_total = 0
             private_test_correct = 0
             for _, (images, labels) in enumerate(tqdm.tqdm(private_test_loader)):
@@ -137,7 +140,7 @@ def main():
                 f'public test, loss {loss.cpu().data.numpy():.3}  accuracy {private_test_correct / private_test_total * 100:0.3}%')
             with open(f'{save_prefix}/private_test.txt', 'a+') as private_test_log_file:
                 private_test_log_file.write(
-                    f'loss {loss.cpu().data.numpy():.3}  accuracy {private_test_correct / private_test_total * 100:0.3}%\n')
+                    f'{loss.cpu().data.numpy():.3} {private_test_correct / private_test_total * 100:0.3}\n')
 
 
 if __name__ == '__main__':
