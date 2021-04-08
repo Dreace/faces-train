@@ -16,6 +16,7 @@ parser.add_argument('--epochs', type=int, default=50, required=True)
 parser.add_argument('--learning-rate', help='learning rate', default=0.01, type=float)
 parser.add_argument('--learning-rate-step', help='learning rate step', default=1, type=int)
 parser.add_argument('--learning-rate-gamma', help='learning rate gamma', default=0.8, type=float)
+parser.add_argument('--weight-decay', help='weight decay', default=5e-4, type=float)
 parser.add_argument('--resume', help='resume train')
 parser.add_argument('--momentum', type=float, default=0.9)
 args = parser.parse_args()
@@ -38,6 +39,7 @@ def main():
     learning_rate_step = args.learning_rate_step
     learning_rate_gamma = args.learning_rate_gamma
     resume = args.resume
+    weight_decay = args.weight_decay
     momentum = args.momentum
 
     start_epoch = 1
@@ -50,7 +52,7 @@ def main():
     model.to(device)
 
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=5e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
     # 学习率衰减
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=learning_rate_step, gamma=learning_rate_gamma)
 
