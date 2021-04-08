@@ -59,6 +59,7 @@ def main():
     train_loader = torch.utils.data.DataLoader(FER2013('train', transform=transforms.Compose([
         transforms.RandomCrop(44),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
         transforms.ToTensor()
     ])), batch_size=batch_size, shuffle=True, num_workers=1)
 
